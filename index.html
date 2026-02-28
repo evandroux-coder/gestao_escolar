@@ -266,6 +266,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
 
   <!-- CALENDÁRIO -->
   <div class="page off-r" id="pg-calendario">
+    <!-- Mês atual -->
     <div class="card">
       <div class="card-hd" style="justify-content:space-between;align-items:center">
         <button id="cal-prev" style="width:32px;height:32px;border-radius:9px;background:var(--bg);border:2px solid var(--border);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">‹</button>
@@ -277,6 +278,15 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
         <div class="cal-day-hd">Qua</div><div class="cal-day-hd">Qui</div><div class="cal-day-hd">Sex</div><div class="cal-day-hd">Sáb</div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px" id="big-cal"></div>
+    </div>
+    <!-- Mês seguinte -->
+    <div class="card">
+      <div class="card-hd"><div class="card-ttl" id="cal-ttl-next">📅 Próximo Mês</div></div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px">
+        <div class="cal-day-hd">Dom</div><div class="cal-day-hd">Seg</div><div class="cal-day-hd">Ter</div>
+        <div class="cal-day-hd">Qua</div><div class="cal-day-hd">Qui</div><div class="cal-day-hd">Sex</div><div class="cal-day-hd">Sáb</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px" id="big-cal-next"></div>
     </div>
     <div class="card">
       <div class="card-hd"><div class="card-ttl">📌 Eventos</div></div>
@@ -706,13 +716,39 @@ function makeComEl(c){
 }
 
 // ─── Render Calendário ────────────────────────
+function buildCalGrid(y, m, containerId, isToday){
+  const mNames=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const daysInMonth=new Date(y,m+1,0).getDate();
+  const firstDay=new Date(y,m,1).getDay();
+  const evMap={};
+  eventos.filter(e=>{ const d=e.date?new Date(e.date+'T00:00:00'):null; return d&&d.getFullYear()===y&&d.getMonth()===m; }).forEach(e=>{ evMap[e.date?new Date(e.date+'T00:00:00').getDate():e.dia]=e; });
+  const container=$(containerId); container.innerHTML='';
+  for(let i=0;i<firstDay;i++){ container.appendChild(document.createElement('div')); }
+  for(let d=1;d<=daysInMonth;d++){
+    const ev=evMap[d]; const isTd=(d===isToday);
+    const cor=ev?EV_CORES[ev.tipo]||'muted':'muted';
+    const div=document.createElement('div');
+    div.className='cal-day'+(isTd?' today':'')+(ev?' has-ev':'');
+    if(!isTd){ if(ev) div.style.cssText='background:var(--'+cor+'-l);border-color:var(--'+cor+'-m)'; else div.style.cssText='background:var(--white);border-color:var(--border)'; }
+    const dayNum=document.createElement('div');
+    dayNum.style.cssText='font-size:12px;font-weight:'+(ev||isTd?900:700)+';color:'+(isTd?'#fff':'var(--'+cor+')');
+    dayNum.textContent=String(d);
+    div.appendChild(dayNum);
+    if(ev){ const evLbl=document.createElement('div'); evLbl.style.cssText='font-size:9px;font-weight:800;margin-top:2px;line-height:1.3;color:'+(isTd?'#fff':'var(--'+cor+')'); evLbl.textContent=ev.ttl; div.appendChild(evLbl); div.addEventListener('click',()=>openEvDrawer(ev.id)); }
+    container.appendChild(div);
+  }
+}
+
 function renderCal(){
   const now=new Date();
   const y=calYear, m=calMonth, today=(calYear===now.getFullYear()&&calMonth===now.getMonth())?now.getDate():-1;
   const mNames=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   $('cal-ttl').textContent='📅 '+mNames[m]+' '+y;
-  const daysInMonth=new Date(y,m+1,0).getDate();
-  const firstDay=new Date(y,m,1).getDay();
+  buildCalGrid(y, m, 'big-cal', today);
+  // Mês seguinte
+  const ny=m===11?y+1:y, nm=m===11?0:m+1;
+  $('cal-ttl-next').textContent='📅 '+mNames[nm]+' '+ny;
+  buildCalGrid(ny, nm, 'big-cal-next', -1);
   const evMap={};
   eventos.filter(e=>{ const d=e.date?new Date(e.date+'T00:00:00'):null; return !d||(d.getFullYear()===y&&d.getMonth()===m); }).forEach(e=>{ evMap[e.dia]=e; });
 
