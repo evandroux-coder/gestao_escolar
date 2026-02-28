@@ -981,7 +981,7 @@ function openEvDrawer(id){
   const ev=eventos.find(e=>String(e.id)===String(id)); if(!ev)return;
   const cor=EV_CORES[ev.tipo]||'blue';
   openDrawer('<div class="d-ico">📅</div><div class="d-ttl">'+ev.ttl+'</div><div class="d-sub">'+ev.tipo+'</div><hr class="d-divider">'
-    +'<div class="d-row"><div class="d-lbl">Dia</div><div class="d-val" style="font-weight:900">'+ev.dia+'</div></div>'
+    +'<div class="d-row"><div class="d-lbl">Data</div><div class="d-val" style="font-weight:900">'+(ev.date?fmt(ev.date):ev.dia+'/mês atual')+'</div></div>'
     +'<div class="d-row"><div class="d-lbl">Categoria</div><div class="d-val" style="color:var(--'+cor+')">'+ev.tipo+'</div></div>'
     +'<div class="d-row"><div class="d-lbl">Descrição</div><div class="d-val">'+ev.desc+'</div></div>'
     +'<hr class="d-divider">'
@@ -1001,14 +1001,15 @@ function openEditEv(id){
   $('m-body').innerHTML='<div class="fr"><label>Título</label><input id="f-text" type="text" value="'+ev.ttl.replace(/"/g,'&quot;')+'"></div>'
     +'<div class="fr"><label>Descrição</label><textarea id="f-desc">'+ev.desc+'</textarea></div>'
     +'<div class="f2">'
-    +'<div class="fr"><label>Dia do Mês</label><input id="f-dia" type="number" min="1" max="31" value="'+ev.dia+'"></div>'
+    +'<div class="fr"><label>Data do Evento</label><input id="f-data-ev" type="date" value="'+(ev.date||'')+'"></div>'
     +'<div class="fr"><label>Categoria</label><select id="f-tipo">'+tipos.map(t=>'<option value="'+t+'"'+(t===ev.tipo?' selected':'')+'>'+t+'</option>').join('')+'</select></div>'
     +'</div>';
   closeDrawer();
   modalSaveFn=async()=>{
     const ttl=($('f-text').value||'').trim(); if(!ttl){ $('f-text').style.borderColor='var(--red)'; return; }
-    const dia=parseInt($('f-dia').value)||ev.dia;
-    await fbSaveEv({...ev, ttl, dia, desc:$('f-desc').value, tipo:$('f-tipo').value}).catch(console.error);
+    const dataEv=$('f-data-ev').value; if(!dataEv){ $('f-data-ev').style.borderColor='var(--red)'; return; }
+    const dEvObj=new Date(dataEv+'T00:00:00'); const dia=dEvObj.getDate();
+    await fbSaveEv({...ev, ttl, dia, date:dataEv, desc:$('f-desc').value, tipo:$('f-tipo').value}).catch(console.error);
     modalSaveFn=null; closeModal(); showToast('✏️ Evento atualizado!');
   };
   $('mov').classList.add('on');
@@ -1080,7 +1081,7 @@ function openModal(){
     $('m-body').innerHTML='<div class="fr"><label>Título</label><input id="f-text" type="text" placeholder="Ex: Reunião de Pais"></div>'
       +'<div class="fr"><label>Descrição</label><textarea id="f-desc" placeholder="Detalhes do evento..."></textarea></div>'
       +'<div class="f2">'
-      +'<div class="fr"><label>Dia do Mês</label><input id="f-dia" type="number" min="1" max="31" placeholder="Ex: 15"></div>'
+      +'<div class="fr"><label>Data do Evento</label><input id="f-data-ev" type="date"></div>'
       +'<div class="fr"><label>Categoria</label><select id="f-tipo">'+tipos.map(t=>'<option value="'+t+'">'+t+'</option>').join('')+'</select></div>'
       +'</div>';
   } else if(ctx==='comunicados'){
@@ -1113,8 +1114,9 @@ async function saveModal(){
     await fbSaveCom({id, ttl:text, title:text, desc:$('f-desc')?.value||'', status:$('f-status').value, pub:$('f-pub').value, publico:$('f-pub').value, data:new Date().toISOString().split('T')[0], canal:$('f-canal').value}).catch(console.error);
   } else if(ctx==='calendario'){
     const ttl=($('f-text')?.value||'').trim(); if(!ttl){ $('f-text').style.borderColor='var(--red)'; return; }
-    const dia=parseInt($('f-dia')?.value||0); if(!dia||dia<1||dia>31){ $('f-dia').style.borderColor='var(--red)'; return; }
-    await fbSaveEv({id:'ev_'+id, ttl, dia, desc:$('f-desc')?.value||'', tipo:$('f-tipo').value}).catch(console.error);
+    const dataEv=$('f-data-ev')?.value; if(!dataEv){ $('f-data-ev').style.borderColor='var(--red)'; return; }
+    const dEvObj=new Date(dataEv+'T00:00:00'); const dia=dEvObj.getDate();
+    await fbSaveEv({id:'ev_'+id, ttl, dia, date:dataEv, desc:$('f-desc')?.value||'', tipo:$('f-tipo').value}).catch(console.error);
   }
   closeModal();
 }
