@@ -181,8 +181,10 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
 .who-color.sel{border-color:var(--text);transform:scale(1.15)}
 .who-btn{width:100%;padding:13px;background:var(--blue);color:#fff;border:none;border-radius:12px;font-family:'Nunito',sans-serif;font-size:15px;font-weight:800;cursor:pointer}
 .cal-day-hd{font-size:10px;font-weight:800;color:var(--muted);text-align:center;padding:4px 0}
-.cal-day{min-height:52px;border-radius:8px;border:1.5px solid var(--border);padding:6px;background:var(--white)}
+.cal-day{min-height:52px;border-radius:8px;border:1.5px solid var(--border);padding:6px;background:var(--white);cursor:pointer;transition:border-color .15s,transform .15s}
+.cal-day:hover{border-color:var(--blue-m);transform:scale(1.04)}
 .cal-day.today{background:var(--blue);border-color:var(--blue)}
+.cal-day.today:hover{border-color:var(--blue)}
 .cal-day.has-ev{cursor:pointer}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 @keyframes urgPulse{0%,100%{border-color:var(--red-m)}50%{border-color:var(--red);box-shadow:0 0 0 4px rgba(220,38,38,.15)}}
@@ -279,15 +281,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px" id="big-cal"></div>
     </div>
-    <!-- Mês seguinte -->
-    <div class="card">
-      <div class="card-hd"><div class="card-ttl" id="cal-ttl-next">📅 Próximo Mês</div></div>
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px">
-        <div class="cal-day-hd">Dom</div><div class="cal-day-hd">Seg</div><div class="cal-day-hd">Ter</div>
-        <div class="cal-day-hd">Qua</div><div class="cal-day-hd">Qui</div><div class="cal-day-hd">Sex</div><div class="cal-day-hd">Sáb</div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px" id="big-cal-next"></div>
-    </div>
+
     <div class="card">
       <div class="card-hd"><div class="card-ttl">📌 Eventos</div></div>
       <div class="swipe-hint">← Arraste para remover</div>
@@ -734,7 +728,10 @@ function buildCalGrid(y, m, containerId, isToday){
     dayNum.style.cssText='font-size:12px;font-weight:'+(ev||isTd?900:700)+';color:'+(isTd?'#fff':'var(--'+cor+')');
     dayNum.textContent=String(d);
     div.appendChild(dayNum);
-    if(ev){ const evLbl=document.createElement('div'); evLbl.style.cssText='font-size:9px;font-weight:800;margin-top:2px;line-height:1.3;color:'+(isTd?'#fff':'var(--'+cor+')'); evLbl.textContent=ev.ttl; div.appendChild(evLbl); div.addEventListener('click',()=>openEvDrawer(ev.id)); }
+    if(ev){ const evLbl=document.createElement('div'); evLbl.style.cssText='font-size:9px;font-weight:800;margin-top:2px;line-height:1.3;color:'+(isTd?'#fff':'var(--'+cor+')'); evLbl.textContent=ev.ttl; div.appendChild(evLbl); }
+    // Todo dia clicável: se tem evento abre drawer, senão abre modal para agendar
+    const dateStr=y+'-'+(String(m+1).padStart(2,'0'))+'-'+(String(d).padStart(2,'0'));
+    div.addEventListener('click',()=>{ if(ev) openEvDrawer(ev.id); else openModalComData(dateStr); });
     container.appendChild(div);
   }
 }
@@ -745,10 +742,7 @@ function renderCal(){
   const mNames=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   $('cal-ttl').textContent='📅 '+mNames[m]+' '+y;
   buildCalGrid(y, m, 'big-cal', today);
-  // Mês seguinte
-  const ny=m===11?y+1:y, nm=m===11?0:m+1;
-  $('cal-ttl-next').textContent='📅 '+mNames[nm]+' '+ny;
-  buildCalGrid(ny, nm, 'big-cal-next', -1);
+
   const evMap={};
   eventos.filter(e=>{ const d=e.date?new Date(e.date+'T00:00:00'):null; return !d||(d.getFullYear()===y&&d.getMonth()===m); }).forEach(e=>{ evMap[e.dia]=e; });
 
@@ -1097,6 +1091,23 @@ function confirmarLimpezaGlobal(){
 }
 
 // ─── Modal ────────────────────────────────────
+function openModalComData(dateStr){
+  // Abre modal de novo evento com data pré-preenchida
+  modalCtx='calendario';
+  modalSaveFn=null;
+  const tipos=['escolar','reuniao','prazo','com','hoje'];
+  $('m-ico').textContent='📅';
+  $('m-ttl').textContent='Novo Evento';
+  $('m-body').innerHTML='<div class="fr"><label>Título</label><input id="f-text" type="text" placeholder="Ex: Reunião de Pais"></div>'
+    +'<div class="fr"><label>Descrição</label><textarea id="f-desc" placeholder="Detalhes do evento..."></textarea></div>'
+    +'<div class="f2">'
+    +'<div class="fr"><label>Data do Evento</label><input id="f-data-ev" type="date" value="'+dateStr+'"></div>'
+    +'<div class="fr"><label>Categoria</label><select id="f-tipo">'+tipos.map(t=>'<option value="'+t+'">'+t+'</option>').join('')+'</select></div>'
+    +'</div>';
+  $('mov').classList.add('on');
+  setTimeout(()=>{ const f=$('m-body').querySelector('input,textarea'); if(f)f.focus(); },100);
+}
+
 function openModal(){
   modalSaveFn=null;
   const ctx=modalCtx;
