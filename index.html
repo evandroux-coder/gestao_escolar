@@ -999,7 +999,7 @@ function openEvDrawer(id){
 
 function openEditEv(id){
   const ev=eventos.find(e=>String(e.id)===String(id)); if(!ev)return;
-  const tipos=['escolar','reuniao','prazo','com','hoje'];
+  const tipos=['escolar','reunião','prazo','com','hoje'];
   $('m-ico').textContent='📅';
   $('m-ttl').textContent='Editar Evento';
   $('m-body').innerHTML='<div class="fr"><label>Título</label><input id="f-text" type="text" value="'+ev.ttl.replace(/"/g,'&quot;')+'"></div>'
@@ -1064,7 +1064,7 @@ function openModalComData(dateStr){
   // Abre modal de novo evento com data pré-preenchida
   modalCtx='calendario';
   modalSaveFn=null;
-  const tipos=['escolar','reuniao','prazo','com','hoje'];
+  const tipos=['escolar','reunião','prazo','com','hoje'];
   $('m-ico').textContent='📅';
   $('m-ttl').textContent='Novo Evento';
   $('m-body').innerHTML='<div class="fr"><label>Título</label><input id="f-text" type="text" placeholder="Ex: Reunião de Pais"></div>'
@@ -1098,7 +1098,7 @@ function openModal(){
       +'<div class="fr"><label>Ícone</label><select id="f-ico"><option>📊</option><option>📋</option><option>📚</option><option>👩‍🏫</option><option>💰</option><option>📈</option><option>📝</option></select></div></div>';
   } else if(ctx==='calendario'){
     $('m-ico').textContent='📅'; $('m-ttl').textContent='Novo Evento';
-    const tipos=['escolar','reuniao','prazo','com','hoje'];
+    const tipos=['escolar','reunião','prazo','com','hoje'];
     $('m-body').innerHTML='<div class="fr"><label>Título</label><input id="f-text" type="text" placeholder="Ex: Reunião de Pais"></div>'
       +'<div class="fr"><label>Descrição</label><textarea id="f-desc" placeholder="Detalhes do evento..."></textarea></div>'
       +'<div class="f2">'
