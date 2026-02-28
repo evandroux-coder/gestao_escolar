@@ -267,7 +267,11 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
   <!-- CALENDÁRIO -->
   <div class="page off-r" id="pg-calendario">
     <div class="card">
-      <div class="card-hd"><div class="card-ttl" id="cal-ttl">📅 Calendário</div></div>
+      <div class="card-hd" style="justify-content:space-between;align-items:center">
+        <button id="cal-prev" style="width:32px;height:32px;border-radius:9px;background:var(--bg);border:2px solid var(--border);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">‹</button>
+        <div class="card-ttl" id="cal-ttl">📅 Calendário</div>
+        <button id="cal-next" style="width:32px;height:32px;border-radius:9px;background:var(--bg);border:2px solid var(--border);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">›</button>
+      </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px">
         <div class="cal-day-hd">Dom</div><div class="cal-day-hd">Seg</div><div class="cal-day-hd">Ter</div>
         <div class="cal-day-hd">Qua</div><div class="cal-day-hd">Qui</div><div class="cal-day-hd">Sex</div><div class="cal-day-hd">Sáb</div>
@@ -335,6 +339,7 @@ const db  = getFirestore(app);
 
 // ─── Estado ───────────────────────────────────
 let tasks=[], prazos=[], coms=[];
+let calYear=new Date().getFullYear(), calMonth=new Date().getMonth();
 let curPage='home', modalCtx='secretaria', modalSaveFn=null;
 let myName='', myColor=0, myPid='', presInt=null;
 
@@ -703,13 +708,13 @@ function makeComEl(c){
 // ─── Render Calendário ────────────────────────
 function renderCal(){
   const now=new Date();
-  const y=now.getFullYear(), m=now.getMonth(), today=now.getDate();
+  const y=calYear, m=calMonth, today=(calYear===now.getFullYear()&&calMonth===now.getMonth())?now.getDate():-1;
   const mNames=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   $('cal-ttl').textContent='📅 '+mNames[m]+' '+y;
   const daysInMonth=new Date(y,m+1,0).getDate();
   const firstDay=new Date(y,m,1).getDay();
   const evMap={};
-  eventos.forEach(e=>{ evMap[e.dia]=e; });
+  eventos.filter(e=>{ const d=e.date?new Date(e.date+'T00:00:00'):null; return !d||(d.getFullYear()===y&&d.getMonth()===m); }).forEach(e=>{ evMap[e.dia]=e; });
 
   $('big-cal').innerHTML='';
   for(let i=0;i<firstDay;i++){
@@ -1199,6 +1204,8 @@ window.addEventListener('beforeunload',()=>{
 
 // ─── INIT ─────────────────────────────────────
 // Binds estáticos
+$('cal-prev').addEventListener('click',()=>{ calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCal(); });
+$('cal-next').addEventListener('click',()=>{ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCal(); });
 $('btn-back').addEventListener('click',goHome);
 $('bn-home').addEventListener('click',goHome);
 $('bn-sec').addEventListener('click',()=>goPage('secretaria'));
