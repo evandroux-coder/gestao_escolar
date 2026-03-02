@@ -159,6 +159,21 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
 .modal-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 .btn-cancel{padding:9px 18px;background:var(--bg);color:var(--muted);border:2px solid var(--border);border-radius:9px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
 .btn-save{padding:9px 22px;background:var(--blue);color:#fff;border:none;border-radius:9px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer}
+.btn-bell{position:relative;width:34px;height:34px;border-radius:10px;background:var(--orange-l);border:1.5px solid var(--orange-m);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.btn-bell:hover{background:var(--orange);color:#fff}
+.bell-badge{position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid var(--white)}
+.alert-ov{position:fixed;inset:0;background:rgba(26,38,64,.5);backdrop-filter:blur(6px);z-index:600;display:none;align-items:center;justify-content:center}
+.alert-ov.on{display:flex}
+.alert-modal{background:var(--white);border-radius:18px;padding:24px;width:440px;max-width:95vw;box-shadow:var(--sh-lg);border:2px solid var(--border);max-height:85vh;overflow-y:auto}
+.alert-modal-hd{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.alert-modal-hd h2{font-family:'Lora',serif;font-size:18px;font-weight:700}
+.alert-item{display:flex;align-items:flex-start;gap:10px;padding:11px 13px;border-radius:10px;border:1.5px solid;margin-bottom:8px}
+.alert-item.urg{background:var(--red-l);border-color:var(--red-m)}
+.alert-item.pra{background:var(--orange-l);border-color:var(--orange-m)}
+.alert-item.ev{background:var(--blue-l);border-color:var(--blue-m)}
+.alert-item-ico{font-size:20px;flex-shrink:0}
+.alert-item-ttl{font-size:13px;font-weight:800;line-height:1.3}
+.alert-item-sub{font-size:11px;font-weight:600;margin-top:2px;opacity:.75}
 .toast{position:fixed;bottom:72px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:9px 20px;border-radius:20px;font-size:12px;font-weight:800;z-index:500;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
 .toast.on{opacity:1}
 .bnav{background:var(--white);border-top:2px solid var(--border);height:60px;display:flex;align-items:center;justify-content:space-around;flex-shrink:0}
@@ -207,6 +222,7 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
   </div>
   <div class="tr">
     <div class="sync-info"><span class="sync-dot off" id="sync-dot"></span><span id="sync-lbl">Conectando...</span></div>
+    <button class="btn-bell" id="btn-bell" title="Alertas">🔔<span class="bell-badge" id="bell-badge" style="display:none">0</span></button>
     <button class="btn-trash" id="btn-limpar-global" title="Limpar histórico">🗑</button>
   </div>
 </div>
@@ -324,6 +340,15 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
   </div>
 </div>
 
+<div class="alert-ov" id="alert-ov">
+  <div class="alert-modal">
+    <div class="alert-modal-hd"><span style="font-size:24px">🔔</span><h2>Alertas do Dia</h2></div>
+    <div id="alert-list"></div>
+    <div style="margin-top:14px;text-align:center">
+      <button id="btn-fechar-alerta" style="padding:10px 28px;background:var(--blue);color:#fff;border:none;border-radius:10px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer">✓ Entendi</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -406,6 +431,7 @@ function initListeners(){
     tasks = snap.docs.map(d=>({...d.data(),id:d.id}));
     renderHome();
     if(curPage==='secretaria') renderSecretaria();
+    checkAlertas(false);
     showToast();
   }, ()=>setStatus(false,'Offline'));
   onSnapshot(collection(db,'prazos'), snap=>{
@@ -1149,6 +1175,59 @@ const PAL_COLORS=[
   {bg:'F5F3FF',bd:'7C3AED',dot:'7C3AED',tx:'6D28D9'},{bg:'F0FDFA',bd:'0D9488',dot:'0D9488',tx:'0F766E'},
 ];
 
+function checkAlertas(autoShow){
+  const now=new Date(); now.setHours(0,0,0,0);
+  const alertas=[];
+
+  // Tarefas urgentes pendentes
+  const urg=tasks.filter(t=>t.prio==='urgente'&&!t.done);
+  urg.forEach(t=>{
+    alertas.push({tipo:'urg',ico:'🚨',ttl:t.text,sub:'Tarefa urgente pendente — '+( t.resp||'sem responsável')});
+  });
+
+  // Prazos vencendo em até 2 dias
+  prazos.filter(p=>!p.ok&&dr(p.date)<=2&&dr(p.date)>=0).forEach(p=>{
+    const d=dr(p.date);
+    alertas.push({tipo:'pra',ico:'⏰',ttl:p.ttl||p.title||'',sub:d===0?'Vence HOJE!':d===1?'Vence amanhã!':'Vence em '+d+' dias — '+(p.org||p.origem||'')});
+  });
+
+  // Eventos nas próximas 24h
+  eventos.forEach(e=>{
+    if(!e.date) return;
+    const evDate=new Date(e.date+'T00:00:00');
+    const diff=Math.round((evDate-now)/864e5);
+    if(diff===0||diff===1){
+      alertas.push({tipo:'ev',ico:'📅',ttl:e.ttl,sub:diff===0?'Evento HOJE!':'Evento amanhã — '+fmt(e.date)});
+    }
+  });
+
+  // Atualizar badge do sino
+  const badge=$('bell-badge');
+  if(alertas.length>0){
+    badge.style.display='flex';
+    badge.textContent=alertas.length;
+  } else {
+    badge.style.display='none';
+  }
+
+  // Montar lista do pop-up
+  const list=$('alert-list');
+  if(!list) return;
+  if(!alertas.length){
+    list.innerHTML='<div style="text-align:center;padding:20px;font-size:13px;color:var(--muted)">✅ Nenhum alerta no momento!</div>';
+  } else {
+    list.innerHTML=alertas.map(a=>'<div class="alert-item '+a.tipo+'">'
+      +'<div class="alert-item-ico">'+a.ico+'</div>'
+      +'<div><div class="alert-item-ttl">'+a.ttl+'</div><div class="alert-item-sub">'+a.sub+'</div></div>'
+      +'</div>').join('');
+  }
+
+  // Mostrar pop-up automático só se tiver alertas
+  if(autoShow&&alertas.length>0){
+    $('alert-ov').classList.add('on');
+  }
+}
+
 function buildColorPicker(){
   $('who-colors').innerHTML='';
   PAL_COLORS.forEach((c,i)=>{
@@ -1222,6 +1301,9 @@ window.addEventListener('beforeunload',()=>{
 // Binds estáticos
 $('cal-prev').addEventListener('click',()=>{ calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCal(); });
 $('cal-next').addEventListener('click',()=>{ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCal(); });
+$('btn-bell').addEventListener('click',()=>{ checkAlertas(false); $('alert-ov').classList.add('on'); });
+$('btn-fechar-alerta').addEventListener('click',()=>$('alert-ov').classList.remove('on'));
+$('alert-ov').addEventListener('click',e=>{ if(e.target===$('alert-ov'))$('alert-ov').classList.remove('on'); });
 $('btn-back').addEventListener('click',goHome);
 $('bn-home').addEventListener('click',goHome);
 $('bn-sec').addEventListener('click',()=>goPage('secretaria'));
@@ -1259,6 +1341,7 @@ $('com-resumo-card').addEventListener('click',()=>goPage('comunicados'));
     $('my-name-lbl').textContent='👤 '+savedName;
     $('who-ov').style.display='none';
     startPresence();
+    setTimeout(()=>checkAlertas(true),2000);
   } else {
     buildColorPicker();
     $('who-ov').style.display='flex';
