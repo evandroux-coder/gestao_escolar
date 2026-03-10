@@ -201,6 +201,8 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
 .cal-day.today{background:var(--blue);border-color:var(--blue)}
 .cal-day.today:hover{border-color:var(--blue)}
 .cal-day.has-ev{cursor:pointer}
+.ev-concluido{opacity:.55;text-decoration:line-through}
+.ev-concluido-badge{font-size:9px;font-weight:800;color:var(--green);background:var(--green-l);border:1px solid var(--green-m);border-radius:4px;padding:1px 5px;margin-left:4px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 @keyframes urgPulse{0%,100%{border-color:var(--red-m)}50%{border-color:var(--red);box-shadow:0 0 0 4px rgba(220,38,38,.15)}}
 @keyframes popIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
@@ -264,6 +266,15 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);disp
       <div class="card-hd">
         <div class="card-ttl">✅ Entregues / Histórico</div>
         <button class="card-act" id="btn-limpar-entregues" style="display:none;background:var(--red-l);color:var(--red);border:1.5px solid var(--red-m)">🗑 Limpar</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input id="hist-busca" type="text" placeholder="🔍 Buscar no histórico..." style="flex:1;padding:8px 12px;border-radius:9px;border:1.5px solid var(--border);font-family:'Nunito',sans-serif;font-size:12px;background:var(--bg)">
+        <select id="hist-filtro" style="padding:8px 10px;border-radius:9px;border:1.5px solid var(--border);font-family:'Nunito',sans-serif;font-size:12px;background:var(--bg)">
+          <option value="todos">Todos</option>
+          <option value="mes">Este mês</option>
+          <option value="3meses">Últimos 3 meses</option>
+          <option value="ano">Este ano</option>
+        </select>
       </div>
       <div id="pra-entregues"></div>
     </div>
@@ -616,13 +627,23 @@ function renderPrazos(){
     $('pra-lista').innerHTML=empty('Nenhum prazo pendente 🎉');
   }
 
-  const entregues=prazos.filter(p=>p.ok);
-  $('pra-entregues').innerHTML='';
-  if(entregues.length){
-    entregues.forEach(p=>{ $('pra-entregues').appendChild(makePrazoEl(p)); });
-  } else {
-    $('pra-entregues').innerHTML=empty('Nenhum entregue ainda');
+  function renderEntregues(){
+    const busca=($('hist-busca')?.value||'').toLowerCase();
+    const filtro=$('hist-filtro')?.value||'todos';
+    const now=new Date(); now.setHours(0,0,0,0);
+    let entregues=prazos.filter(p=>p.ok);
+    if(filtro==='mes') entregues=entregues.filter(p=>{ if(!p.dataConclusao) return true; const d=new Date(p.dataConclusao+'T00:00:00'); return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear(); });
+    else if(filtro==='3meses') entregues=entregues.filter(p=>{ if(!p.dataConclusao) return true; return (now-new Date(p.dataConclusao+'T00:00:00'))<=90*864e5; });
+    else if(filtro==='ano') entregues=entregues.filter(p=>{ if(!p.dataConclusao) return true; return new Date(p.dataConclusao+'T00:00:00').getFullYear()===now.getFullYear(); });
+    if(busca) entregues=entregues.filter(p=>(p.ttl||p.title||'').toLowerCase().includes(busca)||(p.org||p.origem||'').toLowerCase().includes(busca));
+    entregues.sort((a,b)=>{ if(!a.dataConclusao) return 1; if(!b.dataConclusao) return -1; return new Date(b.dataConclusao)-new Date(a.dataConclusao); });
+    $('pra-entregues').innerHTML='';
+    if(entregues.length){ entregues.forEach(p=>{ $('pra-entregues').appendChild(makePrazoEl(p)); }); }
+    else { $('pra-entregues').innerHTML=empty('Nenhum resultado encontrado'); }
   }
+  renderEntregues();
+  $('hist-busca')?.addEventListener('input', renderEntregues);
+  $('hist-filtro')?.addEventListener('change', renderEntregues);
 
   const btnL=$('btn-limpar-entregues');
   if(btnL){
@@ -635,7 +656,7 @@ function renderPrazos(){
 
 function makePrazoEl(p){
   const d=dr(p.date);
-  const ds=p.ok?'✅':d<0?'Vencido!':d===0?'Hoje!':d+'d';
+  const ds=p.ok?(p.dataConclusao?'✅ '+fmt(p.dataConclusao):'✅ Entregue'):d<0?'Vencido!':d===0?'Hoje!':d+'d';
   const cor=p.ok?'g':p.cor;
 
   const wrap=document.createElement('div');
@@ -654,8 +675,11 @@ function makePrazoEl(p){
   pEl.dataset.id=p.id;
   if(p.ok) pEl.style.opacity='.55';
   pEl.innerHTML='<div class="p-ico">'+(p.ico||'📋')+'</div>'
-    +'<div style="flex:1;min-width:0"><div class="p-ttl">'+(p.ttl||p.title||'')+'</div>'
-    +'<div class="p-meta">'+(p.org||p.origem||'')+'  ·  '+fmt(p.date)+'</div></div>'
+    +'<div style="flex:1;min-width:0">'
+    +'<div class="p-ttl"'+(p.ok?' style="text-decoration:line-through;opacity:.7"':'')+'>'+( p.ttl||p.title||'')+'</div>'
+    +'<div class="p-meta">'+(p.org||p.origem||'')+'  ·  Prazo: '+fmt(p.date)+'</div>'
+    +(p.ok&&p.dataConclusao?'<div style="font-size:10px;font-weight:800;color:var(--green);margin-top:2px">✅ Concluído em '+fmt(p.dataConclusao)+'</div>':'')
+    +'</div>'
     +'<div class="p-dias">'+ds+'</div>';
 
   const delBtn=document.createElement('button');
@@ -840,9 +864,11 @@ function makeEvEl(e){
   delBtn.style.cssText='flex-shrink:0;width:28px;height:28px;border-radius:7px;background:rgba(220,38,38,.12);border:1.5px solid var(--red-m);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center';
   delBtn.addEventListener('click',async ev=>{ ev.stopPropagation(); await fbDelEv(e.id).catch(console.error); showToast('🗑 Evento removido!'); });
 
+  const concluido=!!e.concluido;
   row.innerHTML='<div style="display:flex;align-items:center;gap:12px;flex:1">'
-    +'<div style="width:36px;height:36px;border-radius:9px;background:var(--'+cor+'-m);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--'+cor+')">'+e.dia+'</div>'
-    +'<div><div style="font-size:13px;font-weight:700">'+e.ttl+'</div><div style="font-size:10px;color:var(--muted)">'+e.tipo+'</div></div>'
+    +'<div style="width:36px;height:36px;border-radius:9px;background:var(--'+cor+'-m);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--'+cor+')'+(concluido?';opacity:.5':'')+'">'+(concluido?'✅':e.dia)+'</div>'
+    +'<div><div style="font-size:13px;font-weight:700'+(concluido?';text-decoration:line-through;opacity:.6':'')+'">'+e.ttl+(concluido?'<span class="ev-concluido-badge">Realizado</span>':'')+'</div>'
+    +'<div style="font-size:10px;color:var(--muted)">'+e.tipo+'</div></div>'
     +'</div>';
   row.appendChild(delBtn);
   row.addEventListener('click',ev=>{ if(!ev.target.closest('.del-btn')) openEvDrawer(e.id); });
@@ -971,7 +997,13 @@ function openPrazoDrawer(id){
     +(!p.ok?'<button class="d-btn pr" id="d-editar-p">✏️ Editar</button>':'')
     +'<button class="d-btn dn" id="d-del-p">🗑 Remover</button>'
     +'</div>');
-  on('#d-toggle-p',async()=>{ p.ok=!p.ok; await fbSavePrazo(p).catch(console.error); closeDrawer(); });
+  on('#d-toggle-p',async()=>{
+    const novoOk=!p.ok;
+    const updated={...p, ok:novoOk, dataConclusao:novoOk?new Date().toISOString().split('T')[0]:null};
+    await fbSavePrazo(updated).catch(console.error);
+    closeDrawer();
+    showToast(novoOk?'✅ Prazo concluído!':'↩️ Prazo reaberto!');
+  });
   on('#d-editar-p',()=>openEditPrazo(p.id));
   on('#d-del-p',async()=>{ await fbDelPrazo(String(p.id)).catch(console.error); closeDrawer(); });
 }
@@ -1050,17 +1082,28 @@ function openEditCom(id){
 function openEvDrawer(id){
   const ev=eventos.find(e=>String(e.id)===String(id)); if(!ev)return;
   const cor=EV_CORES[ev.tipo]||'blue';
-  openDrawer('<div class="d-ico">📅</div><div class="d-ttl">'+ev.ttl+'</div><div class="d-sub">'+ev.tipo+'</div><hr class="d-divider">'
+  const concluido=!!ev.concluido;
+  openDrawer('<div class="d-ico">'+(concluido?'✅':'📅')+'</div>'
+    +'<div class="d-ttl"'+(concluido?' style="text-decoration:line-through;opacity:.6"':'')+'>'+ev.ttl+'</div>'
+    +'<div class="d-sub">'+ev.tipo+(concluido?' · <span style="color:var(--green);font-weight:900">Concluído</span>':'')+'</div><hr class="d-divider">'
     +'<div class="d-row"><div class="d-lbl">Data</div><div class="d-val" style="font-weight:900">'+(ev.date?fmt(ev.date):ev.dia+'/mês atual')+'</div></div>'
     +'<div class="d-row"><div class="d-lbl">Categoria</div><div class="d-val" style="color:var(--'+cor+')">'+ev.tipo+'</div></div>'
     +'<div class="d-row"><div class="d-lbl">Descrição</div><div class="d-val">'+ev.desc+'</div></div>'
     +'<hr class="d-divider">'
     +'<div class="d-acts">'
+    +(concluido
+      ?'<button class="d-btn pr" id="d-reabrir-ev">↩️ Reabrir</button>'
+      :'<button class="d-btn ok" id="d-concluir-ev">✅ Concluir</button>')
     +'<button class="d-btn pr" id="d-editar-ev">✏️ Editar</button>'
     +'<button class="d-btn dn" id="d-del-ev">🗑 Remover</button>'
     +'</div>');
   on('#d-editar-ev',()=>openEditEv(ev.id));
   on('#d-del-ev',async()=>{ await fbDelEv(String(ev.id)).catch(console.error); closeDrawer(); showToast('🗑 Evento removido!'); });
+  if(concluido){
+    on('#d-reabrir-ev',async()=>{ await fbSaveEv({...ev,concluido:false}).catch(console.error); closeDrawer(); showToast('↩️ Evento reaberto!'); });
+  } else {
+    on('#d-concluir-ev',async()=>{ await fbSaveEv({...ev,concluido:true}).catch(console.error); closeDrawer(); showToast('✅ Evento concluído!'); });
+  }
 }
 
 function openEditEv(id){
